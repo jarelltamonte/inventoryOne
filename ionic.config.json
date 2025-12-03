@@ -1,0 +1,7 @@
+{
+  "name": "inventoryOne",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}
