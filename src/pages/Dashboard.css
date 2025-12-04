@@ -1,0 +1,19 @@
+.chart-box{
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 16px;
+    margin: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.first-chart{
+    margin-top: 40px;
+}
+
+.chart-title{
+    text-align: center;
+}

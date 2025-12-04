@@ -10,6 +10,7 @@ import {
   IonCardContent,
   useIonAlert,
   useIonToast,
+  IonSearchbar,
 } from "@ionic/react";
 import { add, createOutline, trash } from "ionicons/icons";
 import { useState, useEffect } from "react";
@@ -23,41 +24,80 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  query,
+  where,
 } from "firebase/firestore";
+
+type InventoryItem = {
+  id: string;
+  model: string;
+  year: number;
+  quantity: number;
+  price: number;
+};
 
 const Inventory: React.FC = () => {
   const [presentAlert] = useIonAlert();
   const [presentToast] = useIonToast();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
-    loadItems();
-  }, []);
+    if (searchText.trim() === "") {
+      loadItems();
+    } else {
+      searchItems(searchText);
+    }
+  }, [searchText]);
 
   const loadItems = async () => {
     const querySnapshot = await getDocs(collection(db, "items"));
-
     const loadedItems = querySnapshot.docs.map((doc) => ({
       id: doc.id,
-      ...doc.data(),
+      ...(doc.data() as Omit<InventoryItem, "id">),
     }));
 
     setItems(loadedItems);
   };
 
-  // --- NEW FUNCTION: Log actions to Firebase History ---
+  const searchItems = async (text: string) => {
+    const term = text.toLowerCase();
+
+    const qModel = query(
+      collection(db, "items"),
+      where("model", ">=", text),
+      where("model", "<=", text + "\uf8ff")
+    );
+
+    const querySnapshot = await getDocs(qModel);
+
+    let results = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<InventoryItem, "id">),
+    }));
+
+    results = results.filter(
+      (item) =>
+        item.model.toLowerCase().includes(term) ||
+        item.year.toString().includes(term) ||
+        item.quantity.toString().includes(term) ||
+        item.price.toString().includes(term)
+    );
+
+    setItems(results);
+  };
+
   const logHistory = async (action: string, modelName: string) => {
     try {
       await addDoc(collection(db, "history"), {
-        action: action,         // e.g. "Added", "Deleted"
-        model: modelName,       // e.g. "Model X"
-        timestamp: new Date(),  // Capture current time
+        action,
+        model: modelName,
+        timestamp: new Date(),
       });
     } catch (error) {
       console.error("Error logging history:", error);
     }
   };
-  // ----------------------------------------------------
 
   const openAddItemAlert = () => {
     presentAlert({
@@ -83,16 +123,16 @@ const Inventory: React.FC = () => {
               return false;
             }
 
-            const docRef = await addDoc(collection(db, "items"), {
+            const newItem = {
               model: data.model,
               quantity: Number(data.quantity),
               price: Number(data.price),
               year: Number(data.year),
-            });
+            };
 
-            setItems((prev) => [...prev, { id: docRef.id, ...data }]);
+            const docRef = await addDoc(collection(db, "items"), newItem);
 
-            // CALL HISTORY LOG
+            setItems((prev) => [...prev, { id: docRef.id, ...newItem }]);
             await logHistory("Added", data.model);
 
             presentToast({
@@ -109,7 +149,7 @@ const Inventory: React.FC = () => {
     });
   };
 
-  const openEditItemAlert = (item: any, index: number) => {
+  const openEditItemAlert = (item: InventoryItem, index: number) => {
     presentAlert({
       header: "Edit Item",
       inputs: [
@@ -138,21 +178,22 @@ const Inventory: React.FC = () => {
               return false;
             }
 
-            const itemId = items[index].id;
-            const ref = doc(db, "items", itemId);
-
-            await updateDoc(ref, {
+            const updatedItem = {
               model: newData.model,
               quantity: Number(newData.quantity),
               price: Number(newData.price),
               year: Number(newData.year),
-            });
+            };
+
+            const itemId = items[index].id;
+            const ref = doc(db, "items", itemId);
+
+            await updateDoc(ref, updatedItem);
 
             const updated = [...items];
-            updated[index] = { id: itemId, ...newData };
+            updated[index] = { id: itemId, ...updatedItem };
             setItems(updated);
 
-            // CALL HISTORY LOG
             await logHistory("Edited", newData.model);
 
             presentToast({
@@ -169,7 +210,7 @@ const Inventory: React.FC = () => {
     });
   };
 
-  const deleteItem = (item: any, index: number) => {
+  const deleteItem = (item: InventoryItem, index: number) => {
     presentAlert({
       header: "Delete Item?",
       message: `Are you sure you want to delete "${item.model}"?`,
@@ -182,7 +223,6 @@ const Inventory: React.FC = () => {
             await deleteDoc(doc(db, "items", item.id));
 
             setItems((prev) => prev.filter((_, i) => i !== index));
-
             await logHistory("Deleted", item.model);
 
             presentToast({
@@ -208,43 +248,53 @@ const Inventory: React.FC = () => {
           color="primary"
           onClick={openAddItemAlert}
         >
-          <IonIcon aria-hidden="true" slot="icon-only" icon={add} />
+          <IonIcon slot="icon-only" icon={add} />
         </IonButton>
+
         <div className="inventoryOne">
           <p className="title">Inventory One</p>
           <p className="subtitle">Your inventory bestfriend</p>
         </div>
 
         <div className="card-container">
+          <IonSearchbar
+            placeholder="Search items"
+            value={searchText}
+            onIonInput={(e) => setSearchText(e.detail.value!)}
+          />
+
           {items.map((item, index) => (
             <IonCard key={item.id} className="card-item">
+              <div className="edit-button">
+                <IonButton
+                  size="small"
+                  color="warning"
+                  onClick={() => openEditItemAlert(item, index)}
+                >
+                  <IonIcon icon={createOutline} slot="start" />
+                </IonButton>
+              </div>
+
               <IonCardHeader>
                 <IonCardSubtitle>{item.year}</IonCardSubtitle>
                 <IonCardTitle>{item.model}</IonCardTitle>
               </IonCardHeader>
 
               <IonCardContent>
-                <p><strong>{item.quantity} units</strong></p>
+                <p>
+                  Qty:<strong> {item.quantity} units</strong>
+                </p>
                 <p>₱{item.price} per item</p>
-                <div className="buttons">
-                  <IonButton
-                    size="small"
-                    color="warning"
-                    onClick={() => openEditItemAlert(item, index)}
-                  >
-                    <IonIcon icon={createOutline} slot="start" />
-                    Edit
-                  </IonButton>
 
-                  <IonButton
-                    size="small"
-                    color="danger"
-                    onClick={() => deleteItem(item, index)}
-                  >
-                    <IonIcon icon={trash} slot="start" />
-                    Trash
-                  </IonButton>
-                </div>
+                <IonButton
+                  size="small"
+                  color="danger"
+                  expand="block"
+                  onClick={() => deleteItem(item, index)}
+                >
+                  <IonIcon icon={trash} slot="start" />
+                  DELETE
+                </IonButton>
               </IonCardContent>
             </IonCard>
           ))}

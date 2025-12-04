@@ -7,16 +7,15 @@ import {
   IonList,
   IonItem,
   IonLabel,
-  useIonViewWillEnter, // 1. Import this hook
+  useIonViewWillEnter, 
 } from "@ionic/react";
-import { useState } from "react"; // Removed useEffect, not needed here anymore
+import { useState } from "react"; 
 import { db } from "../firebaseConfig";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
 const History: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
 
-  // 2. Replace useEffect with useIonViewWillEnter
   useIonViewWillEnter(() => {
     loadHistory();
   });
@@ -25,7 +24,7 @@ const History: React.FC = () => {
     try {
       const q = query(
         collection(db, "history"),
-        orderBy("timestamp", "desc") // Sorts by newest first
+        orderBy("timestamp", "desc") 
       );
 
       const snapshot = await getDocs(q);
@@ -37,7 +36,6 @@ const History: React.FC = () => {
           id: doc.id,
           action: log.action,
           model: log.model,
-          // Excellent fallback check here for the timestamp
           timestamp: log.timestamp?.toDate
             ? log.timestamp.toDate()
             : new Date(log.timestamp), 
@@ -71,7 +69,6 @@ const History: React.FC = () => {
               <IonLabel>
                 <h2>{log.model}</h2>
                 <p>
-                  {/* Good use of uppercase for readability */}
                   {log.action.toUpperCase()} ·{" "}
                   {log.timestamp.toLocaleDateString()}{" "}
                   {log.timestamp.toLocaleTimeString()}
