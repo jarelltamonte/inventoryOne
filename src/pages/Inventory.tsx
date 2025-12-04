@@ -283,6 +283,17 @@ const Inventory: React.FC = () => {
               <IonCardContent>
                 <p>
                   Qty:<strong> {item.quantity} units</strong>
+                  {item.quantity < 20 && (
+                    <span
+                      style={{
+                        color: "red",
+                        marginLeft: "8px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      ⚠️ Low in stock
+                    </span>
+                  )}
                 </p>
                 <p>₱{item.price} per item</p>
 
